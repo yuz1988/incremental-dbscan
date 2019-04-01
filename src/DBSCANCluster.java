@@ -9,7 +9,7 @@ public class DBSCANCluster {
 
     private final int minPts;  // Minimum number of points needed for a cluster
 
-    private int clusterID; // cluster unique ID, start from 0
+    private int clusterGlobalID; // cluster unique ID, start from 0
 
     public DBSCANCluster(final double eps, final int minPts) {
         if (eps < 0.0d || minPts < 0) {
@@ -18,30 +18,30 @@ public class DBSCANCluster {
 
         this.eps = eps;
         this.minPts = minPts;
-        clusterID = 0;
+        clusterGlobalID = 0;
     }
 
     public void cluster(final List<Point> points) {
         for (final Point point : points) {
-            if (!point.visited) {
+            if (point.visited) {
                 continue;
             }
             final List<Point> neighbors = getNeighbors(point, points);
             if (neighbors.size() >= minPts) {
                 expandCluster(point, neighbors, points);
-                clusterID++;
+                clusterGlobalID++;
             } else {
-                point.visited = true;
+                point.visited = true;   // noise point at current time, may become border point later
             }
         }
 
     }
 
     private void expandCluster(final Point point, final List<Point> neighbors, final List<Point> points) {
-        point.clusterIndex = clusterID;
+        point.clusterIndex = clusterGlobalID;
         point.visited = true;
 
-        List<Point> seeds = new ArrayList<Point>(neighbors);
+        List<Point> seeds = new ArrayList<>(neighbors);
         int index = 0;
         while (index < seeds.size()) {
             final Point current = seeds.get(index);
@@ -55,13 +55,21 @@ public class DBSCANCluster {
             }
 
             if (current.clusterIndex == Point.NOISE) {
-                current.clusterIndex = clusterID;
+                current.clusterIndex = clusterGlobalID;
             }
 
             index++;
         }
     }
 
+
+    /**
+     * Return a list of density-reachable neighbors of a {@code point}
+     *
+     * @param point the point to look for
+     * @param points all points
+     * @return neighbors not including point itself
+     */
     private List<Point> getNeighbors(final Point point, final List<Point> points) {
         final List<Point> neighbors = new ArrayList<Point>();
         for (final Point neighbor : points) {
@@ -72,6 +80,14 @@ public class DBSCANCluster {
         return neighbors;
     }
 
+
+    /**
+     * Merges two lists together.
+     *
+     * @param one first list
+     * @param two second list
+     * @return merged lists
+     */
     private List<Point> merge(final List<Point> one, final List<Point> two) {
         final Set<Point> oneSet = new HashSet<Point>(one);
         for (Point item : two) {
