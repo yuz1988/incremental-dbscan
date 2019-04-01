@@ -18,7 +18,7 @@ public class Point {
         this.pointIndex = pointIndex;   // point index
         this.position = position;
         this.clusterIndex = NOISE;  // initially a noise point
-        this.epsNbrNum = 0;  // number of eps-neighbors around me
+        this.epsNbrNum = -1;  // number of eps-neighbors around me
     }
 
     public double euclidDist(Point p1) {

@@ -18,50 +18,98 @@ public class DBSCANCluster {
         clusterGlobalID = 0;
     }
 
+    /**
+     * Batch DBSCAN clustering algorithm.
+     * The clustering result is each point is labelled
+     * with either a cluster index or noise.
+     *
+     * @param points all point set
+     */
     public void cluster(final List<Point> points) {
         for (final Point point : points) {
             if (point.visited) {
                 continue;
             }
+            point.visited = true;
             final List<Point> neighbors = getNeighbors(point, points);
+
             if (neighbors.size() >= minPts) {
+                point.clusterIndex = clusterGlobalID;
                 expandCluster(point, neighbors, points);
                 clusterGlobalID++;
             } else {
-                point.visited = true;   // noise point at current time, may become border point later
+                // noise point temporarily, may become border point later
+                point.clusterIndex = Point.NOISE;
+            }
+        }
+    }
+
+    public void incrementalUpdate(final Point newPoint,
+                                  final List<Point> points) {
+        List<Point> candidates = new ArrayList<>();
+        final List<Point> neighbors = getNeighbors(newPoint, points);
+        for (Point nbr : neighbors) {
+            if (nbr.epsNbrNum == (minPts - 1)) {
+                candidates.add(nbr);
             }
         }
 
-    }
-
-    private void expandCluster(final Point point, final List<Point> neighbors, final List<Point> points) {
-        point.clusterIndex = clusterGlobalID;
-        point.visited = true;
-
-        // push all neighbors (seeds) to stack
-        Deque<Point> seeds = new ArrayDeque<>();
-        for (Point p : neighbors) {
-            seeds.push(p);
+        List<Point> updateSeed = new ArrayList<>();
+        for (Point q_Prime : candidates) {
+            List<Point> q_Prime_Neighbors = getNeighbors(q_Prime, points);
+            for (Point q : q_Prime_Neighbors) {
+                int numEpsNbrs = q.epsNbrNum;
+                if (q.euclidDist(newPoint) <= eps) {
+                    numEpsNbrs++;
+                }
+                if (numEpsNbrs >= minPts) {
+                    updateSeed.add(q);
+                }
+            }
         }
 
-        while (!seeds.isEmpty()) {
-            final Point current = seeds.pop();
+        // Different cases based on the updateSeed
+        if (updateSeed.isEmpty()) {
+
+        }
+    }
+
+    /**
+     * Expands the cluster to include all density-reachable points.
+     *
+     * @param point     starting core point
+     * @param neighbors point's neighbors
+     * @param points    all point set
+     */
+    private void expandCluster(final Point point, final List<Point> neighbors,
+                               final List<Point> points) {
+        List<Point> seeds = new ArrayList<>(neighbors);
+        int index = 0;
+        while (index < seeds.size()) {
+            final Point current = seeds.get(index);
             // only check non-visited points
             if (!current.visited) {
+                current.visited = true;
+                current.clusterIndex = clusterGlobalID;
                 final List<Point> currentNeighbors = getNeighbors(current, points);
-                // density-connected core point
+
+                // current point is a density-connected core point
                 if (currentNeighbors.size() >= minPts) {
                     for (Point currentNbr : currentNeighbors) {
                         if (!currentNbr.visited) {
-                            seeds.push(currentNbr);
+                            seeds.add(currentNbr);
                         }
                     }
                 }
             }
 
+            // assign cluster ID to boarder point
             if (current.clusterIndex == Point.NOISE) {
+                current.visited = true;
                 current.clusterIndex = clusterGlobalID;
             }
+
+            index++;
         }
     }
 
@@ -69,7 +117,7 @@ public class DBSCANCluster {
     /**
      * Return a list of density-reachable neighbors of a {@code point}
      *
-     * @param point the point to look for
+     * @param point  the point to look for
      * @param points all points
      * @return neighbors not including point itself
      */
@@ -80,6 +128,9 @@ public class DBSCANCluster {
                 neighbors.add(neighbor);
             }
         }
+        // add number of eps-neighbors for each point
+        point.epsNbrNum = neighbors.size();
+
         return neighbors;
     }
 
