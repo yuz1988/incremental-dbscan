@@ -1,7 +1,4 @@
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class DBSCANCluster {
 
@@ -41,24 +38,30 @@ public class DBSCANCluster {
         point.clusterIndex = clusterGlobalID;
         point.visited = true;
 
-        List<Point> seeds = new ArrayList<>(neighbors);
-        int index = 0;
-        while (index < seeds.size()) {
-            final Point current = seeds.get(index);
+        // push all neighbors (seeds) to stack
+        Deque<Point> seeds = new ArrayDeque<>();
+        for (Point p : neighbors) {
+            seeds.push(p);
+        }
+
+        while (!seeds.isEmpty()) {
+            final Point current = seeds.pop();
             // only check non-visited points
             if (!current.visited) {
                 final List<Point> currentNeighbors = getNeighbors(current, points);
                 // density-connected core point
                 if (currentNeighbors.size() >= minPts) {
-                    seeds = merge(seeds, currentNeighbors);
+                    for (Point currentNbr : currentNeighbors) {
+                        if (!currentNbr.visited) {
+                            seeds.push(currentNbr);
+                        }
+                    }
                 }
             }
 
             if (current.clusterIndex == Point.NOISE) {
                 current.clusterIndex = clusterGlobalID;
             }
-
-            index++;
         }
     }
 
@@ -71,31 +74,13 @@ public class DBSCANCluster {
      * @return neighbors not including point itself
      */
     private List<Point> getNeighbors(final Point point, final List<Point> points) {
-        final List<Point> neighbors = new ArrayList<Point>();
+        final List<Point> neighbors = new ArrayList<>();
         for (final Point neighbor : points) {
             if (point != neighbor && point.euclidDist(neighbor) <= eps) {
                 neighbors.add(neighbor);
             }
         }
         return neighbors;
-    }
-
-
-    /**
-     * Merges two lists together.
-     *
-     * @param one first list
-     * @param two second list
-     * @return merged lists
-     */
-    private List<Point> merge(final List<Point> one, final List<Point> two) {
-        final Set<Point> oneSet = new HashSet<Point>(one);
-        for (Point item : two) {
-            if (!oneSet.contains(item)) {
-                one.add(item);
-            }
-        }
-        return one;
     }
 
 }
