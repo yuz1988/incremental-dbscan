@@ -8,6 +8,8 @@ public class DBSCANCluster {
 
     private int clusterGlobalID; // cluster unique ID, start from 0
 
+    HashMap<Integer, Integer> clusterMapping;  // cluster parent tree
+
     public DBSCANCluster(final double eps, final int minPts) {
         if (eps < 0.0d || minPts < 1) {
             throw new IllegalArgumentException("DBSCAN param cannot be negative");
@@ -15,6 +17,7 @@ public class DBSCANCluster {
 
         this.eps = eps;
         this.minPts = minPts;
+        this.clusterMapping = new HashMap<>();
         clusterGlobalID = 0;
     }
 
@@ -35,7 +38,8 @@ public class DBSCANCluster {
 
             if (neighbors.size() >= minPts) {
                 point.clusterIndex = clusterGlobalID;
-                expandCluster(point, neighbors, points);
+                expandCluster(point, neighbors, points, clusterGlobalID);
+                clusterMapping.put(clusterGlobalID, clusterGlobalID);
                 clusterGlobalID++;
             } else {
                 // noise point temporarily, may become border point later
@@ -76,14 +80,17 @@ public class DBSCANCluster {
             HashSet<Integer> set = new HashSet<>();
             for (Point seed : updateSeed) {
                 if (seed.clusterIndex != -1) {
-                    set.add(seed.clusterIndex);
+                    int rootClusterID = findRootClusterID(seed.clusterIndex);
+                    set.add(rootClusterID);
                 }
             }
 
             if (set.isEmpty()) {
                 // case 1: all seeds were noise
                 for (Point seed : updateSeed) {
-                    expandSeedToCluster(seed, points, clusterGlobalID);
+                    List<Point> seedNbrs = getNeighbors(seed, points);
+                    expandCluster(seed, seedNbrs, points, clusterGlobalID);
+                    clusterMapping.put(clusterGlobalID, clusterGlobalID);
                     clusterGlobalID++;
                 }
                 System.out.println("Create a new cluster from new point\n");
@@ -95,16 +102,38 @@ public class DBSCANCluster {
                 }
                 // case 2: seeds contain core point of exactly one cluster C
                 for (Point seed : updateSeed) {
-                    expandSeedToCluster(seed, points, uniqueClusterID);
+                    List<Point> seedNbrs = getNeighbors(seed, points);
+                    expandCluster(seed, seedNbrs, points, uniqueClusterID);
                 }
                 System.out.println("Absorb to cluster " + uniqueClusterID +
                         "\n");
             } else {
                 // case 3: seeds contains several clusters, merge them
-                mergeClusters(updateSeed, points, set);
-                System.out.println("Merge clusters \n");
+                mergeClusters(updateSeed, points, set, clusterGlobalID);
+                System.out.print("Merge clusters: ");
+                for (int e : set) {
+                    System.out.print(e + " ");
+                }
+                System.out.println();
             }
         }
+    }
+
+    private int findRootClusterID(int id) {
+        while (clusterMapping.get(id) != id) {
+            id = clusterMapping.get(id);
+        }
+        return id;
+    }
+
+    private void mergeClusters(final List<Point> seeds,
+                               final List<Point> points,
+                               final HashSet<Integer> set,
+                               final int id) {
+        for (int e : set) {
+            clusterMapping.put(e, id);
+        }
+        clusterMapping.put(id, id);
     }
 
     /**
@@ -115,7 +144,7 @@ public class DBSCANCluster {
      * @param points    all point set
      */
     private void expandCluster(final Point point, final List<Point> neighbors,
-                               final List<Point> points) {
+                               final List<Point> points, final int id) {
         List<Point> seeds = new ArrayList<>(neighbors);
         int index = 0;
         while (index < seeds.size()) {
@@ -123,7 +152,7 @@ public class DBSCANCluster {
             // only check non-visited points
             if (!current.visited) {
                 current.visited = true;
-                current.clusterIndex = clusterGlobalID;
+                current.clusterIndex = id;
                 final List<Point> currentNeighbors = getNeighbors(current, points);
 
                 // current point is a density-connected core point
@@ -139,7 +168,7 @@ public class DBSCANCluster {
             // assign cluster ID to boarder point
             if (current.clusterIndex == Point.NOISE) {
                 current.visited = true;
-                current.clusterIndex = clusterGlobalID;
+                current.clusterIndex = id;
             }
 
             index++;
