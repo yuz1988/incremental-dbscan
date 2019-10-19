@@ -1,4 +1,7 @@
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 
 public class DBSCANCluster {
 
@@ -11,7 +14,7 @@ public class DBSCANCluster {
     HashMap<Integer, Integer> clusterMapping;  // cluster parent tree
 
     public DBSCANCluster(final double eps, final int minPts) {
-        if (eps < 0.0d || minPts < 1) {
+        if (eps < 0.0 || minPts < 1) {
             throw new IllegalArgumentException("DBSCAN param cannot be negative");
         }
 
@@ -175,20 +178,19 @@ public class DBSCANCluster {
         }
     }
 
-
     /**
      * Return a list of density-reachable neighbors of a {@code point}
      *
      * @param point  the point to look for
      * @param points all points
-     * @return neighbors including point itself
+     * @return neighbors (including point itself)
      */
     private List<Point> getNeighbors(final Point point, final List<Point> points) {
         final List<Point> neighbors = new ArrayList<>();
-        for (final Point neighbor : points) {
+        for (final Point p : points) {
             // include point itself
-            if (point.euclidDist(neighbor) <= eps) {
-                neighbors.add(neighbor);
+            if (point.euclidDist(p) <= eps) {
+                neighbors.add(p);
             }
         }
         // add number of eps-neighbors for each point
@@ -196,5 +198,4 @@ public class DBSCANCluster {
 
         return neighbors;
     }
-
 }
