@@ -147,7 +147,7 @@ public class DBSCANCluster {
      * @param points    all point set
      */
     private void expandCluster(final Point point, final List<Point> neighbors,
-                               final List<Point> points, final int id) {
+                               final List<Point> points, int id) {
         List<Point> seeds = new ArrayList<>(neighbors);
         int index = 0;
         while (index < seeds.size()) {
