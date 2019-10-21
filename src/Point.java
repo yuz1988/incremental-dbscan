@@ -3,7 +3,9 @@ public class Point {
 
     final double[] position;
 
-    int pointIndex;
+    final int pointIndex;
+
+    final int label;
 
     int clusterIndex;
 
@@ -13,10 +15,12 @@ public class Point {
 
     final static int NOISE = -1;
 
-    public Point(final double[] position, int pointIndex) {
-        this.visited = false;
+    public Point(final double[] position, int pointIndex, int label) {
         this.pointIndex = pointIndex;   // point index
-        this.position = position;
+        this.position = position;    // point position
+        this.label = label;  // true cluster label of point
+
+        this.visited = false;
         this.clusterIndex = NOISE;  // initially a noise point
         this.epsNbrNum = 1;  // number of eps-neighbors around me
     }
