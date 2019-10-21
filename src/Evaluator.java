@@ -1,58 +1,81 @@
 import java.util.*;
 
 /**
+ * Clustering result.
+ */
+class StatRes {
+    public double f1Score, purity;
+}
+
+/**
  * Clustering quality evaluator.
  */
 public class Evaluator {
-    public double SSQ(final List<Point> points) {
-        // TODO
-        return 0.0;
-    }
 
-    /**
-     * Compute the purity of clustering result.
-     * See section 6.1 in DenStream paper.
-     *
-     * @param points
-     * @return
-     */
-    public double purity(final List<Point> points) {
-        // Group points by true labels.
-        // key: true label, value: points
-        HashMap<Integer, List<Point>> map = new HashMap<>();
+    public StatRes f1Score(final List<Point> points) {
+        // Group points by true class labels.
+        // key: true class label, value: points
+        HashMap<Integer, List<Point>> classLabelMap = new HashMap<>();
+
+        // Group points by cluster index.
+        // key: cluster index, value: points
+        HashMap<Integer, List<Point>> clusterIndexMap = new HashMap<>();
+
         for (Point p : points) {
-            if (!map.containsKey(p.label)) {
-                map.put(p.label, new ArrayList<Point>());
+            if (!classLabelMap.containsKey(p.label)) {
+                classLabelMap.put(p.label, new ArrayList<Point>());
             }
-            map.get(p.label).add(p);
+            classLabelMap.get(p.label).add(p);
+
+            if (!clusterIndexMap.containsKey(p.clusterIndex)) {
+                clusterIndexMap.put(p.clusterIndex, new ArrayList<>());
+            }
+            clusterIndexMap.get(p.clusterIndex).add(p);
         }
 
-        double sum = 0.0;
-        for (int label : map.keySet()) {
+        // Compute F1-score and purity.
+        double f1 = 0.0;
+        double purity = 0.0;
+        for (int clusterIndex : clusterIndexMap.keySet()) {
             // Find dominant class in the list.
-            List<Point> members = map.get(label);
-            int maxClass = findDominant(members);
-            sum += ((double) maxClass) / members.size();
+            List<Point> members = clusterIndexMap.get(clusterIndex);
+            int[] arr = findDominant(members);
+            int dominantLabel = arr[0];
+            int dominantLabelNum = arr[1];
+
+            List<Point> dominantClusterMembers =
+                    classLabelMap.get(dominantLabel);
+            purity += dominantLabelNum / members.size();
+            f1 += (2.0 * dominantLabelNum) / (members.size() + dominantClusterMembers.size());
         }
 
-        // Return average purity of clusters.
-        return sum / map.size();
+        StatRes res = new StatRes();
+        res.f1Score = f1 / clusterIndexMap.size();
+        res.purity = purity / clusterIndexMap.size();
+        return res;
     }
 
+
     /**
-     * Compute the number of points with dominant class label.
+     * Compute the number of points with dominant class label (ground truth).
+     *
      * @param members
-     * @return
+     * @return dominant class label and frequency.
      */
-    private int findDominant(List<Point> members) {
+    private int[] findDominant(List<Point> members) {
         HashMap<Integer, Integer> map = new HashMap<>();
         for (Point p : members) {
-            map.put(p.clusterIndex, map.getOrDefault(p.clusterIndex, 0) + 1);
+            map.put(p.label, map.getOrDefault(p.label, 0) + 1);
         }
-        int max = 0;
-        for (int value : map.values()) {
-            max = Math.max(max, value);
+
+        int dominantLabel = -1;
+        int maxFreq = 0;
+        for (Map.Entry<Integer, Integer> entry : map.entrySet()) {
+            if (entry.getValue() > maxFreq) {
+                dominantLabel = entry.getKey();
+                maxFreq = entry.getValue();
+            }
         }
-        return max;
+        return new int[]{dominantLabel, maxFreq};
     }
 }
