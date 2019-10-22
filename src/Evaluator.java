@@ -1,35 +1,36 @@
 import java.util.*;
 
 /**
- * Clustering result.
+ * Match-based Clustering result.
  */
-class StatRes {
+class MatchBasedStatRes {
     public double f1Score, purity;
+}
+
+class PairwiseMetrics {
+    public double jaccard, randStat, fowlkesMallow;
 }
 
 /**
  * Clustering quality evaluator.
+ * Refer the "Cluster Analysis in Data Mining" by Jiawei Han.
  */
 public class Evaluator {
 
-    /**
-     * Compute f1 score and purity.
-     * Refer "6.4 External Measures 1: Matching-Based Measures" in "Cluster
-     * Analysis in Data Mining" by Jiawei Han.
-     * Purity score as Section 6.1 in Denstream paper.
-     *
-     * @param points
-     * @return
-     */
-    public StatRes f1Score(final List<Point> points) {
-        // Group points by true class labels.
-        // key: true class label, value: points
-        HashMap<Integer, List<Point>> classLabelMap = new HashMap<>();
+    List<Point> points;
 
-        // Group points by cluster index.
-        // key: cluster index, value: points
-        HashMap<Integer, List<Point>> clusterIndexMap = new HashMap<>();
+    // Group points by true class labels.
+    // key: true class label, value: points
+    HashMap<Integer, List<Point>> classLabelMap;
 
+    // Group points by cluster index.
+    // key: cluster index, value: points
+    HashMap<Integer, List<Point>> clusterIndexMap;
+
+    public Evaluator(final List<Point> points) {
+        this.points = points;
+        classLabelMap = new HashMap<>();
+        clusterIndexMap = new HashMap<>();
         for (Point p : points) {
             if (!classLabelMap.containsKey(p.label)) {
                 classLabelMap.put(p.label, new ArrayList<Point>());
@@ -41,7 +42,17 @@ public class Evaluator {
             }
             clusterIndexMap.get(p.clusterIndex).add(p);
         }
+    }
 
+    /**
+     * Compute f1 score and purity.
+     * Refer "6.4 External Measures 1: Matching-Based Measures" in "Cluster
+     * Analysis in Data Mining" by Jiawei Han.
+     * Purity score as Section 6.1 in Denstream paper.
+     *
+     * @return
+     */
+    public MatchBasedStatRes f1Score() {
         // Compute F1-score and purity.
         double f1 = 0.0;
         double purity = 0.0;
@@ -54,56 +65,43 @@ public class Evaluator {
 
             List<Point> dominantClusterMembers =
                     classLabelMap.get(dominantLabel);
-            purity += dominantLabelNum / members.size();
+            purity += dominantLabelNum / points.size();
             f1 += (2.0 * dominantLabelNum) / (members.size() + dominantClusterMembers.size());
         }
 
-        StatRes res = new StatRes();
+        MatchBasedStatRes res = new MatchBasedStatRes();
         res.f1Score = f1 / clusterIndexMap.size();
-        res.purity = purity / clusterIndexMap.size();
+        res.purity = purity;
         return res;
     }
 
-    public double nmi(List<Point> points) {
-        // Group points by true class labels.
-        // key: true class label, value: points
-        HashMap<Integer, List<Point>> classLabelMap = new HashMap<>();
-
-        // Group points by cluster index.
-        // key: cluster index, value: points
-        HashMap<Integer, List<Point>> clusterIndexMap = new HashMap<>();
-
-        for (Point p : points) {
-            if (!classLabelMap.containsKey(p.label)) {
-                classLabelMap.put(p.label, new ArrayList<Point>());
-            }
-            classLabelMap.get(p.label).add(p);
-
-            if (!clusterIndexMap.containsKey(p.clusterIndex)) {
-                clusterIndexMap.put(p.clusterIndex, new ArrayList<>());
-            }
-            clusterIndexMap.get(p.clusterIndex).add(p);
-        }
-
-        int n = points.size();
-        double entropyClustering = 0.0;  // H(C)
-        double entropyTruth = 0.0;    // H(T)
-        HashMap<Integer, Double> entropyClusteringMap = new HashMap<>();
-        HashMap<Integer, Double> entropyTruthMap = new HashMap<>();
+    /**
+     * Compute normalized mutual information.
+     * Refer "6.5 External Measures 2: Entropy-Based Measures" in "Cluster
+     * Analysis in Data Mining" by Jiawei Han.
+     *
+     * @return
+     */
+    public double NMI() {
+        int N = points.size();
+        double clusteringEntropy = 0.0;      // H(C)
+        double partitioningEntropy = 0.0;    // H(T)
+        HashMap<Integer, Double> clusteringEntropyMap = new HashMap<>();
+        HashMap<Integer, Double> partitioningEntropyMap = new HashMap<>();
 
         // Compute entropy of clustering C and partitioning T.
         for (Map.Entry<Integer, List<Point>> entry :
                 clusterIndexMap.entrySet()) {
-            double prob = ((double) entry.getValue().size()) / n;
+            double prob = ((double) entry.getValue().size()) / N;
             double entropy = computeEntropy(prob);
-            entropyClusteringMap.put(entry.getKey(), entropy);
-            entropyClustering += entropy;
+            clusteringEntropyMap.put(entry.getKey(), entropy);
+            clusteringEntropy += entropy;
         }
         for (Map.Entry<Integer, List<Point>> entry : classLabelMap.entrySet()) {
-            double prob = ((double) entry.getValue().size()) / n;
+            double prob = ((double) entry.getValue().size()) / N;
             double entropy = computeEntropy(prob);
-            entropyTruthMap.put(entry.getKey(), entropy);
-            entropyTruth += entropy;
+            partitioningEntropyMap.put(entry.getKey(), entropy);
+            partitioningEntropy += entropy;
         }
 
         // Compute the shared information between clustering C and
@@ -121,11 +119,48 @@ public class Evaluator {
             for (Map.Entry<Integer, Integer> subEntry : map.entrySet()) {
                 int label = subEntry.getKey();
                 int num = subEntry.getValue();
-                double prob = ((double)num) / n;
-
+                double prob = ((double) num) / N;
+                mutualInfo += prob * Math.log(prob / (clusteringEntropyMap.
+                        get(clusterIndex) * partitioningEntropyMap.get(label)));
             }
         }
 
+        return mutualInfo / Math.sqrt(clusteringEntropy * partitioningEntropy);
+    }
+
+    /**
+     * Compute pairwise measures.
+     * Refer "6.6 External Measures 2: Entropy-Based Measures" in
+     * "Cluster Analysis in Data Mining" by Jiawei Han.
+     *
+     * @return
+     */
+    public PairwiseMetrics pairwiseMetrics() {
+        int tp = 0, fn = 0, fp = 0, tn = 0;
+        for (List<Point> cluster : clusterIndexMap.values()) {
+            HashMap<Integer, Integer> map = new HashMap<>();
+            for (Point p : cluster) {
+                map.put(p.label, map.getOrDefault(p.label, 0) + 1);
+            }
+            for (int nij : map.values()) {
+                tp += nij * (nij - 1) / 2;
+            }
+            fp += cluster.size() * (cluster.size() - 1) / 2;
+        }
+        fp -= tp;
+
+        for (List<Point> partition : classLabelMap.values()) {
+            fn += partition.size() * (partition.size() - 1) / 2;
+        }
+        fn -= tp;
+        tn = points.size() - (tp + fp + fn);
+
+        PairwiseMetrics pairwise = new PairwiseMetrics();
+        pairwise.jaccard = ((double) tp) / (tp + fn + fp);
+        pairwise.randStat = ((double) tp + tn) / points.size();
+        pairwise.fowlkesMallow =
+                ((double) tp) / Math.sqrt((tp + fn) * (tp + fp));
+        return pairwise;
     }
 
 
