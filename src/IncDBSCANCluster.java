@@ -69,7 +69,7 @@ public class IncDBSCANCluster {
         if (updateSeed.isEmpty()) {  // UpdSeed is empty, p is a noise point
             newPoint.clusterIndex = Point.NOISE;
         } else {
-            // set contains only non-noise cluster index.
+            // case 0: set contains only non-noise cluster index.
             HashSet<Integer> clusterIdSet = new HashSet<>();
             for (Point seed : updateSeed) {
                 if (seed.clusterIndex != Point.NOISE) {
@@ -103,6 +103,7 @@ public class IncDBSCANCluster {
                     clusterMapping.put(id, clusterGlobalID);
                 }
                 clusterMapping.put(clusterGlobalID, clusterGlobalID);
+                clusterGlobalID++;
             }
         }
 
