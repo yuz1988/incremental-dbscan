@@ -7,7 +7,8 @@ import java.util.List;
  */
 public class DBSCANCluster {
 
-    private final double eps;  // Maximum radius of the neighborhood to be considered
+    private final double eps;  // Maximum radius of the neighborhood to be
+    // considered
 
     private final int minPts;  // Minimum number of points needed for a cluster
 
@@ -17,7 +18,8 @@ public class DBSCANCluster {
 
     public DBSCANCluster(final double eps, final int minPts) {
         if (eps < 0.0 || minPts < 1) {
-            throw new IllegalArgumentException("DBSCAN param cannot be negative");
+            throw new IllegalArgumentException("DBSCAN param cannot be " +
+                    "negative");
         }
 
         this.eps = eps;
@@ -61,8 +63,8 @@ public class DBSCANCluster {
      * @param points    all point set
      * @param clusterId new cluster id
      */
-    private void expandCluster(final Point point, final List<Point> neighbors,
-                               final List<Point> points, int clusterId) {
+    private void expandCluster(final Point point, final List<Point> neighbors
+            , final List<Point> points, int clusterId) {
         List<Point> seeds = new ArrayList<>(neighbors);
         int index = 0;
         while (index < seeds.size()) {
@@ -71,7 +73,8 @@ public class DBSCANCluster {
             if (!current.visited) {
                 current.visited = true;
                 current.clusterIndex = clusterId;
-                final List<Point> currentNeighbors = getNeighbors(current, points);
+                final List<Point> currentNeighbors = getNeighbors(current,
+                        points);
 
                 // current point is a density-connected core point
                 if (currentNeighbors.size() >= minPts) {
@@ -100,7 +103,8 @@ public class DBSCANCluster {
      * @param points all points
      * @return neighbors (including point itself)
      */
-    private List<Point> getNeighbors(final Point point, final List<Point> points) {
+    private List<Point> getNeighbors(final Point point,
+                                     final List<Point> points) {
         final List<Point> neighbors = new ArrayList<>();
         for (final Point p : points) {
             // include point itself

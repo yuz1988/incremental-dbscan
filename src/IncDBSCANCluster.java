@@ -4,9 +4,13 @@ import java.util.HashSet;
 import java.util.List;
 
 public class IncDBSCANCluster {
-    private final double eps;  // Maximum radius of the neighborhood to be considered
 
-    private final int minPts;  // Minimum number of points needed for a cluster
+    private List<Point> points;   // data warehouse storing all the points
+
+    private final double eps;  // maximum radius of the neighborhood to be
+    // considered
+
+    private final int minPts;  // minimum number of points needed for a cluster
 
     private int clusterGlobalID; // cluster unique ID, start from 0
 
@@ -14,30 +18,45 @@ public class IncDBSCANCluster {
 
     public IncDBSCANCluster(final double eps, final int minPts) {
         if (eps < 0.0 || minPts < 1) {
-            throw new IllegalArgumentException("DBSCAN param cannot be negative");
+            throw new IllegalArgumentException("DBSCAN param cannot be " +
+                    "negative");
         }
 
         this.eps = eps;
         this.minPts = minPts;
+        this.points = new ArrayList<>();
         this.clusterMapping = new HashMap<>();
         clusterGlobalID = 0;
     }
 
-    public void incrementalUpdate(final Point newPoint,
-                                  final List<Point> points) {
+    public void incrementalUpdate(Point newPoint) {
+        points.add(newPoint);
+
         List<Point> candidates = new ArrayList<>();
-        final List<Point> neighbors = getNeighbors(newPoint, points);
+        List<Point> neighbors = getEpsNeighbors(newPoint);
         for (Point nbr : neighbors) {
-            // increment the number of eps-neighbor
-            nbr.epsNbrNum++;
-            if (nbr.epsNbrNum == minPts) {
-                candidates.add(nbr);
+            // increment the number of eps-neighbor except the new point.
+            if (nbr == newPoint) {
+                // add number of eps-neighbors for new point
+                newPoint.epsNbrNum = neighbors.size();
+                if (newPoint.epsNbrNum >= minPts) {
+                    candidates.add(newPoint);
+                }
+            } else {
+                // update number of neighbors.
+                nbr.epsNbrNum++;
+                // q_prime is core point in {D union p} but not in D.
+                if (nbr.epsNbrNum == minPts) {
+                    candidates.add(nbr);
+                }
             }
         }
 
+        // find UpdSeed_Ins, q is a core point in {D union p} and
+        // q \in N_Eps(q')
         List<Point> updateSeed = new ArrayList<>();
         for (Point q_Prime : candidates) {
-            List<Point> q_Prime_Neighbors = getNeighbors(q_Prime, points);
+            List<Point> q_Prime_Neighbors = getEpsNeighbors(q_Prime);
             for (Point q : q_Prime_Neighbors) {
                 if (q.epsNbrNum >= minPts) {
                     updateSeed.add(q);
@@ -45,108 +64,98 @@ public class IncDBSCANCluster {
             }
         }
 
-        points.add(newPoint);
 
-        // Different cases based on the updateSeed
-        if (updateSeed.isEmpty()) {
+        // different cases based on the UpdSeed_Ins
+        if (updateSeed.isEmpty()) {  // UpdSeed is empty, p is a noise point
             newPoint.clusterIndex = Point.NOISE;
         } else {
             // set contains only non-noise cluster index.
-            HashSet<Integer> set = new HashSet<>();
+            HashSet<Integer> clusterIdSet = new HashSet<>();
             for (Point seed : updateSeed) {
-                if (seed.clusterIndex != -1) {
+                if (seed.clusterIndex != Point.NOISE) {
                     int rootClusterID = findRootClusterID(seed.clusterIndex);
-                    set.add(rootClusterID);
+                    clusterIdSet.add(rootClusterID);
                 }
             }
 
-            if (set.isEmpty()) {
+            if (clusterIdSet.isEmpty()) {
                 // case 1: all seeds were noise
                 for (Point seed : updateSeed) {
-                    List<Point> seedNbrs = getNeighbors(seed, points);
-                    expandCluster(seed, seedNbrs, points, clusterGlobalID);
+                    expandCluster(seed, clusterGlobalID);
                     clusterMapping.put(clusterGlobalID, clusterGlobalID);
                     clusterGlobalID++;
                 }
-                System.out.println("Create a new cluster from new point\n");
-            } else if (set.size() == 1) {
+            } else if (clusterIdSet.size() == 1) {
                 // retrieve the unique cluster id.
                 int uniqueClusterID = -1;
-                for (int id : set) {
+                for (int id : clusterIdSet) {
                     uniqueClusterID = id;
                 }
-                // case 2: seeds contain core point of exactly one cluster C
+                // case 2: seeds contain core points of exactly one cluster
                 for (Point seed : updateSeed) {
-                    List<Point> seedNbrs = getNeighbors(seed, points);
-                    expandCluster(seed, seedNbrs, points, uniqueClusterID);
+                    List<Point> seedNbrs = getEpsNeighbors(seed);
+                    expandCluster(seed, uniqueClusterID);
                 }
-                System.out.println("Absorb to cluster " + uniqueClusterID +
-                        "\n");
             } else {
-                // case 3: seeds contains several clusters, merge them
-                mergeClusters(updateSeed, points, set, clusterGlobalID);
-                System.out.print("Merge clusters: ");
-                for (int e : set) {
-                    System.out.print(e + " ");
+                // case 3: seeds contains several clusters, merge these clusters
+                newPoint.clusterIndex = clusterGlobalID;
+                for (int id : clusterIdSet) {
+                    clusterMapping.put(id, clusterGlobalID);
                 }
-                System.out.println();
+                clusterMapping.put(clusterGlobalID, clusterGlobalID);
             }
         }
+
+        newPoint.visited = true;
     }
 
+    /**
+     * Find root of the tree given a cluster index.
+     *
+     * @param id
+     * @return
+     */
     private int findRootClusterID(int id) {
-        while (clusterMapping.get(id) != id) {
-            id = clusterMapping.get(id);
+        int root = id;
+        while (clusterMapping.get(root) != root) {
+            root = clusterMapping.get(root);
         }
-        return id;
-    }
 
-    private void mergeClusters(final List<Point> seeds,
-                               final List<Point> points,
-                               final HashSet<Integer> set,
-                               final int id) {
-        for (int e : set) {
-            clusterMapping.put(e, id);
+        // path compression
+        while (id != root) {
+            int parent = clusterMapping.get(id);
+            clusterMapping.put(id, root);
+            id = parent;
         }
-        clusterMapping.put(id, id);
+        return root;
     }
 
     /**
      * Expands the cluster to include all density-reachable points.
+     * Mark all the density-reachable noise points with the cluster id.
      *
-     * @param point     starting core point
-     * @param neighbors point's neighbors
-     * @param points    all point set
+     * @param seed starting core point
      * @param clusterId new cluster id
      */
-    private void expandCluster(final Point point, final List<Point> neighbors,
-                               final List<Point> points, int clusterId) {
-        List<Point> seeds = new ArrayList<>(neighbors);
+    private void expandCluster(Point seed, int clusterId) {
+        List<Point> seeds = getEpsNeighbors(seed);
         int index = 0;
         while (index < seeds.size()) {
-            final Point current = seeds.get(index);
-            // only check non-visited points
-            if (!current.visited) {
-                current.visited = true;
+            Point current = seeds.get(index);
+            // only check noise points
+            if (current.clusterIndex == Point.NOISE) {
                 current.clusterIndex = clusterId;
-                final List<Point> currentNeighbors = getNeighbors(current, points);
+                List<Point> currentNeighbors = getEpsNeighbors(current);
 
-                // current point is a density-connected core point
+                // add noisy density-connected points
                 if (currentNeighbors.size() >= minPts) {
                     for (Point currentNbr : currentNeighbors) {
-                        if (!currentNbr.visited) {
+                        if (currentNbr.clusterIndex == Point.NOISE) {
                             seeds.add(currentNbr);
                         }
                     }
                 }
             }
-
-            // assign cluster ID to boarder point
-            if (current.clusterIndex == Point.NOISE) {
-                current.visited = true;
-                current.clusterIndex = clusterId;
-            }
-
             index++;
         }
     }
@@ -154,11 +163,10 @@ public class IncDBSCANCluster {
     /**
      * Return a list of density-reachable neighbors of a {@code point}
      *
-     * @param point  the point to look for
-     * @param points all points
+     * @param point the point to look for
      * @return neighbors (including point itself)
      */
-    private List<Point> getNeighbors(final Point point, final List<Point> points) {
+    private List<Point> getEpsNeighbors(final Point point) {
         final List<Point> neighbors = new ArrayList<>();
         for (final Point p : points) {
             // include point itself
@@ -166,9 +174,6 @@ public class IncDBSCANCluster {
                 neighbors.add(p);
             }
         }
-        // add number of eps-neighbors for each point
-        point.epsNbrNum = neighbors.size();
-
         return neighbors;
     }
 }

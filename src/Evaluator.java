@@ -66,7 +66,8 @@ public class Evaluator {
             List<Point> dominantClusterMembers =
                     classLabelMap.get(dominantLabel);
             purity += dominantLabelNum / points.size();
-            f1 += (2.0 * dominantLabelNum) / (members.size() + dominantClusterMembers.size());
+            f1 += (2.0 * dominantLabelNum) / (members.size() +
+                    dominantClusterMembers.size());
         }
 
         MatchBasedStatRes res = new MatchBasedStatRes();
