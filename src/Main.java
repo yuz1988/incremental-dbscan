@@ -32,7 +32,7 @@ public class Main {
             for (int i=0; i<7; i++) {
                 pos[i] = Double.parseDouble(strs[i]);
             }
-            Point p = new Point(pos, numPoints);
+            Point p = new Point(pos, numPoints, -1);
             numPoints++;
 
             // batch clustering

@@ -79,9 +79,7 @@ public class DBSCANCluster {
                 // current point is a density-connected core point
                 if (currentNeighbors.size() >= minPts) {
                     for (Point currentNbr : currentNeighbors) {
-                        if (!currentNbr.visited) {
-                            seeds.add(currentNbr);
-                        }
+                        seeds.add(currentNbr);
                     }
                 }
             }
