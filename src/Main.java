@@ -86,6 +86,6 @@ public class Main {
                 set.add(entry.getKey());
             }
         }
-        System.out.println("cluters in total: " + set.size());
+        System.out.println("clusters in total: " + set.size());
     }
 }
