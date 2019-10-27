@@ -5,69 +5,73 @@ import java.util.*;
 public class Main {
 
     public static void main(String[] args) throws Exception {
-        double eps = 6.0d;
-        int minPts = 3;
+        double eps = 35.0;
+        int minPts = 8;
 
-        String inFn = "./src/power.txt";
-        String outFn = "./src/time.txt";
+        String inFn = "./src/covtype_train";
+        String batchOut = "./src/batch-time.txt";
+        String incOut = "./src/inc-time.txt";
+        int numPointsToRead = 100000;
+        List<Point> points = readData(inFn, numPointsToRead);
+        System.out.println("Reading data complete");
 
-        List<Point> points = readData(inFn);
-        DBSCANCluster dbsCluster = new DBSCANCluster(eps, minPts);
+//        // Batch for each new point.
+//        FileWriter batchWriter = new FileWriter(new File(batchOut));
+//        DBSCANCluster batchCluster = new DBSCANCluster(eps, minPts);
+//        List<Point> list = new ArrayList<>();
+//        int iter = 0;
+//        long start = System.nanoTime();
+//        for (Point p : points) {
+//            list.add(p);
+//            batchCluster.cluster(list);
+//            long end = System.nanoTime();
+//            double time = (end - start) / 1e9d;
+//            if (iter % 100 == 0) {
+//                System.out.println("Number of iter: " + iter);
+//                batchWriter.write(time + "\n");
+//            }
+//            iter++;
+//        }
+//
+//        batchWriter.close();
+//        // find how many clusters in total
+//        countNumClusters(batchCluster.clusterMapping);
 
+        // Incremental DBSCAN.
+        FileWriter incWriter = new FileWriter(new File(incOut));
+        IncDBSCANCluster incCluster = new IncDBSCANCluster(eps, minPts);
+        int iter = 0;
         long start = System.nanoTime();
-        dbsCluster.cluster(points);
-        long end = System.nanoTime();
-        double time = (end - start) / 1e9d;
-        System.out.println("Time elapsed: " + time);
-
-        // data point stream
-        String streamFn = "./src/stream.txt";
-        int numPoints = 5001;
-        Scanner sc = new Scanner(new File(streamFn));
-        FileWriter fw = new FileWriter(new File(outFn));
-        while(sc.hasNextLine()) {
-            String line = sc.nextLine();
-            String[] strs = line.split(",");
-            double[] pos = new double[7];
-            for (int i=0; i<7; i++) {
-                pos[i] = Double.parseDouble(strs[i]);
+        for (Point p : points) {
+            incCluster.incrementalUpdate(p);
+            long end = System.nanoTime();
+            double time = (end - start) / 1e9d;
+            if (iter % 100 == 0) {
+                System.out.println("Processed points: " + iter);
+                incWriter.write(time + "\n");
             }
-            Point p = new Point(pos, numPoints, -1);
-            numPoints++;
-
-            // batch clustering
-            points.add(p);
-            for (Point p1 : points) {
-                p1.clusterIndex = Point.NOISE;
-                p1.visited = false;
-            }
-            start = System.nanoTime();
-            dbsCluster.cluster(points);
-            end = System.nanoTime();
-            time = (end - start) / 1e9d;
-            fw.write(time + "\n");
-            fw.flush();
+            iter++;
         }
-        sc.close();
-        fw.close();
 
-        // find how many clusters in total
-        countNumClusters(dbsCluster.clusterMapping);
+        incWriter.close();
+        countNumClusters(incCluster.clusterMapping);
     }
 
-    private static List<Point> readData(String inFileName) {
+    private static List<Point> readData(String inFileName,
+                                        int numPointsToRead) {
         List<Point> points = new ArrayList<>();
         try {
             Scanner sc = new Scanner(new File(inFileName));
             int numPoints = 0;
-            while(sc.hasNextLine() && numPoints<5000) {
+            while(sc.hasNextLine() && numPoints<numPointsToRead) {
                 String line = sc.nextLine();
                 String[] strs = line.split(",");
-                double[] pos = new double[7];
-                for (int i=0; i<7; i++) {
+                int d = strs.length;
+                double[] pos = new double[d];
+                for (int i=0; i<d; i++) {
                     pos[i] = Double.parseDouble(strs[i]);
                 }
-                Point p = new Point(pos, numPoints);
+                Point p = new Point(pos, numPoints, -1);
                 points.add(p);
                 numPoints++;
             }
@@ -86,6 +90,6 @@ public class Main {
                 set.add(entry.getKey());
             }
         }
-        System.out.println("clusters in total: " + set.size());
+        System.out.println(set.size());
     }
 }

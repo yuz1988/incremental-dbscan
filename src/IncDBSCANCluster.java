@@ -118,8 +118,14 @@ public class IncDBSCANCluster {
      */
     private int findRootClusterID(int id) {
         int root = id;
+        if (!clusterMapping.containsKey(root)) {
+            System.out.println("Error: " + root);
+        }
         while (clusterMapping.get(root) != root) {
             root = clusterMapping.get(root);
+            if (!clusterMapping.containsKey(root)) {
+                System.out.println("Error: " + root);
+            }
         }
 
         // path compression
