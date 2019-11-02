@@ -16,6 +16,9 @@ public class DBSCANCluster {
 
     HashMap<Integer, Integer> clusterMapping;  // cluster parent tree
 
+    private int cntOfNbrSearch;  // number of "getEpsNeighbors" operations
+    // per incrementally update
+
     public DBSCANCluster(final double eps, final int minPts) {
         if (eps < 0.0 || minPts < 1) {
             throw new IllegalArgumentException("DBSCAN param cannot be " +
@@ -26,6 +29,7 @@ public class DBSCANCluster {
         this.minPts = minPts;
         this.clusterMapping = new HashMap<>();
         clusterGlobalID = 0;
+        cntOfNbrSearch = 0;
     }
 
     /**
@@ -33,19 +37,28 @@ public class DBSCANCluster {
      * The clustering result is each point is labelled
      * with either a cluster index or noise.
      *
-     * @param points all point set
+     * @param points points to cluster
      */
     public void cluster(final List<Point> points) {
-        for (final Point point : points) {
+        resetCluster();
+
+        // copy points to a new list to cluster (deep copy)
+        List<Point> pointsToCluster = new ArrayList<>();
+        for (Point p : points) {
+            pointsToCluster.add(new Point(p));
+        }
+
+        for (Point point : pointsToCluster) {
             if (point.visited) {
                 continue;
             }
             point.visited = true;
-            final List<Point> neighbors = getNeighbors(point, points);
+            final List<Point> neighbors = getNeighbors(point, pointsToCluster);
 
             if (neighbors.size() >= minPts) {
                 point.clusterIndex = clusterGlobalID;
-                expandCluster(point, neighbors, points, clusterGlobalID);
+                expandCluster(point, neighbors, pointsToCluster,
+                        clusterGlobalID);
                 clusterMapping.put(clusterGlobalID, clusterGlobalID);
                 clusterGlobalID++;
             } else {
@@ -53,6 +66,24 @@ public class DBSCANCluster {
                 point.clusterIndex = Point.NOISE;
             }
         }
+    }
+
+    /**
+     * Get the number of neighbor search operations.
+     *
+     * @return
+     */
+    public int getCntOfNbrSearch() {
+        return cntOfNbrSearch;
+    }
+
+    /**
+     * Clear cluster state.
+     */
+    private void resetCluster() {
+        cntOfNbrSearch = 0;
+        clusterGlobalID = 0;
+        clusterMapping.clear();
     }
 
     /**
@@ -112,7 +143,7 @@ public class DBSCANCluster {
         }
         // add number of eps-neighbors for each point
         point.epsNbrNum = neighbors.size();
-
+        cntOfNbrSearch++;
         return neighbors;
     }
 }

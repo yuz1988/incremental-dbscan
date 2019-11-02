@@ -14,6 +14,9 @@ public class IncDBSCANCluster {
 
     private int clusterGlobalID; // cluster unique ID, start from 0
 
+    private int cntOfNbrSearch;  // number of "getEpsNeighbors" operations
+    // per incrementally update
+
     HashMap<Integer, Integer> clusterMapping;  // cluster parent tree
 
     public IncDBSCANCluster(final double eps, final int minPts) {
@@ -27,15 +30,22 @@ public class IncDBSCANCluster {
         this.points = new ArrayList<>();
         this.clusterMapping = new HashMap<>();
         clusterGlobalID = 0;
+        cntOfNbrSearch = 0;
     }
 
+    /**
+     * Incrementally update with a new point
+     *
+     * @param newPoint
+     */
     public void incrementalUpdate(Point newPoint) {
         points.add(newPoint);
+        cntOfNbrSearch = 0;
 
+        // candidates contains q' points.
         List<Point> candidates = new ArrayList<>();
         List<Point> neighbors = getEpsNeighbors(newPoint);
         for (Point nbr : neighbors) {
-            // increment the number of eps-neighbor except the new point.
             if (nbr == newPoint) {
                 // add number of eps-neighbors for new point
                 newPoint.epsNbrNum = neighbors.size();
@@ -45,7 +55,7 @@ public class IncDBSCANCluster {
             } else {
                 // update number of neighbors.
                 nbr.epsNbrNum++;
-                // q_prime is core point in {D union p} but not in D.
+                // q' is core point in {D union p} but not in D.
                 if (nbr.epsNbrNum == minPts) {
                     candidates.add(nbr);
                 }
@@ -64,12 +74,11 @@ public class IncDBSCANCluster {
             }
         }
 
-
         // different cases based on the UpdSeed_Ins
         if (updateSeed.isEmpty()) {  // UpdSeed is empty, p is a noise point
             newPoint.clusterIndex = Point.NOISE;
         } else {
-            // case 0: set contains only non-noise cluster index.
+            // set contains only non-noise cluster index.
             HashSet<Integer> clusterIdSet = new HashSet<>();
             for (Point seed : updateSeed) {
                 if (seed.clusterIndex != Point.NOISE) {
@@ -79,7 +88,7 @@ public class IncDBSCANCluster {
             }
 
             if (clusterIdSet.isEmpty()) {
-                // case 1: all seeds were noise
+                // case 1: all seeds were noise before new point insertion
                 for (Point seed : updateSeed) {
                     expandCluster(seed, clusterGlobalID);
                     clusterMapping.put(clusterGlobalID, clusterGlobalID);
@@ -93,7 +102,6 @@ public class IncDBSCANCluster {
                 }
                 // case 2: seeds contain core points of exactly one cluster
                 for (Point seed : updateSeed) {
-                    List<Point> seedNbrs = getEpsNeighbors(seed);
                     expandCluster(seed, uniqueClusterID);
                 }
             } else {
@@ -108,6 +116,15 @@ public class IncDBSCANCluster {
         }
 
         newPoint.visited = true;
+    }
+
+    /**
+     * Get the number of neighbor search operations.
+     *
+     * @return
+     */
+    public int getCntOfNbrSearch() {
+        return cntOfNbrSearch;
     }
 
     /**
@@ -181,6 +198,7 @@ public class IncDBSCANCluster {
                 neighbors.add(p);
             }
         }
+        cntOfNbrSearch++;
         return neighbors;
     }
 }

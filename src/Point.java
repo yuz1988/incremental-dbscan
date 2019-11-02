@@ -1,4 +1,3 @@
-
 public class Point {
 
     final double[] position;
@@ -25,6 +24,10 @@ public class Point {
         this.epsNbrNum = 1;  // number of eps-neighbors around me
     }
 
+    public Point(final Point p) {
+        this(p.position, p.pointIndex, p.label);
+    }
+
     public double euclidDist(Point p1) {
         double sumDistSq = 0.0;
         int d = position.length;
@@ -32,5 +35,15 @@ public class Point {
             sumDistSq += (position[i] - p1.position[i]) * (position[i] - p1.position[i]);
         }
         return Math.sqrt(sumDistSq);
+    }
+
+    public String toString() {
+        String info = "Position: ";
+        for (int i = 0; i < position.length; i++) {
+            info += position[i] + ", ";
+        }
+        info += "Index: " + pointIndex + ", Label: " + label + ", Visited: " +
+                    visited + ", ClusterIndex: " + clusterIndex;
+        return info;
     }
 }
