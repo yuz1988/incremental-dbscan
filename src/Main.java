@@ -7,7 +7,7 @@ public class Main {
     public static void main(String[] args) throws Exception {
 //        double eps = 55.0;
 //        int minPts = 5;
-        double eps = 2.0;
+        double eps = 1.5;
         int minPts = 2;
 
 //        String inFn = "./src/covtype_train";
