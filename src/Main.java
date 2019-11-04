@@ -5,59 +5,63 @@ import java.util.*;
 public class Main {
 
     public static void main(String[] args) throws Exception {
-        double eps = 55.0;
-        int minPts = 5;
+//        double eps = 55.0;
+//        int minPts = 5;
+        double eps = 2.0;
+        int minPts = 2;
 
-        String inFn = "./src/covtype_train";
-//        String inFn = "./src/accident_data.txt";
+//        String inFn = "./src/covtype_train";
+        String inFn = "./src/accident_data.txt";
         String batchOut = "./src/batch-time.txt";
         String incOut = "./src/inc-time.txt";
         int numPointsToRead = 2000;
         List<Point> points = readData(inFn, numPointsToRead);
 
-        /************** Run Batch DBSCAN for Each Point. ***************/
-        FileWriter batchWriter = new FileWriter(new File(batchOut));
-        DBSCANCluster batchCluster = new DBSCANCluster(eps, minPts);
-        int iter = 0;
-        List<Point> stream = new ArrayList<>();
-        batchWriter.write("numOps,time\n");
-        long start = System.nanoTime();
-        for (Point p : points) {
-            stream.add(p);
-            batchCluster.cluster(stream);
-            long end = System.nanoTime();
-            double time = (end - start) / 1e9d;
-            if (iter % 100 == 0) {
-                System.out.println("Number of iter: " + iter);
-                batchWriter.write(batchCluster.getCntOfNbrSearch() + "," + time + "\n");
-            }
-            iter++;
-        }
-
-        // find how many clusters in total
-        countNumClusters(batchCluster.clusterMapping);
-        batchWriter.close();
-
-//        /************** Run Incremental DBSCAN. ***************/
-//        FileWriter incWriter = new FileWriter(new File(incOut));
-//        IncDBSCANCluster incCluster = new IncDBSCANCluster(eps, minPts);
+//        /************** Run Batch DBSCAN for Each Point. ***************/
+//        FileWriter batchWriter = new FileWriter(new File(batchOut));
+//        DBSCANCluster batchCluster = new DBSCANCluster(eps, minPts);
 //        int iter = 0;
+//        List<Point> stream = new ArrayList<>();
+//        batchWriter.write("numOps,time\n");
 //        long start = System.nanoTime();
-//        incWriter.write("numOps,time\n");
 //        for (Point p : points) {
-//            incCluster.incrementalUpdate(p);
+//            stream.add(p);
+//            batchCluster.cluster(stream);
 //            long end = System.nanoTime();
 //            double time = (end - start) / 1e9d;
 //            if (iter % 100 == 0) {
-//                System.out.println("Processed points: " + iter);
-//                incWriter.write(incCluster.getCntOfNbrSearch() + "," + time
-//                + "\n");
+//                System.out.println("Number of iter: " + iter);
+//                batchWriter.write(batchCluster.getCntOfNbrSearch() + "," + time + "\n");
 //            }
 //            iter++;
 //        }
 //
-//        incWriter.close();
-//        countNumClusters(incCluster.clusterMapping);
+//        // find how many clusters in total
+//        countNumClusters(batchCluster.clusterMapping);
+//        batchWriter.close();
+
+        /************** Run Incremental DBSCAN. ***************/
+        FileWriter incWriter = new FileWriter(new File(incOut));
+        IncDBSCANCluster incCluster = new IncDBSCANCluster(eps, minPts);
+        int iter = 0;
+        long start = System.nanoTime();
+        incWriter.write("numOps,time\n");
+        for (Point p : points) {
+            incCluster.incrementalUpdate(p);
+            long end = System.nanoTime();
+            double time = (end - start) / 1e9d;
+            if (iter % 1 == 0) {
+                System.out.println("Processed points: " + iter);
+                incWriter.write(incCluster.getCntOfNbrSearch() + "," + time
+                + "\n");
+
+                countNumClusters(incCluster.clusterMapping);
+            }
+            iter++;
+        }
+
+        incWriter.close();
+
     }
 
     private static List<Point> readData(String inFileName,
@@ -92,8 +96,9 @@ public class Main {
         for (Map.Entry<Integer, Integer> entry : map.entrySet()) {
             if (entry.getKey() == entry.getValue()) {
                 set.add(entry.getKey());
+                System.out.println("cluster: " + entry.getKey());
             }
         }
-        System.out.println("Number of clusters: " + set.size());
+        System.out.println("Number of clusters: " + set.size() + "\n");
     }
 }

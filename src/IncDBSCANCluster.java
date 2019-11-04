@@ -64,7 +64,7 @@ public class IncDBSCANCluster {
 
         // find UpdSeed_Ins, q is a core point in {D union p} and
         // q \in N_Eps(q')
-        List<Point> updateSeed = new ArrayList<>();
+        HashSet<Point> updateSeed = new HashSet<>();
         for (Point q_Prime : candidates) {
             List<Point> q_Prime_Neighbors = getEpsNeighbors(q_Prime);
             for (Point q : q_Prime_Neighbors) {
@@ -74,8 +74,13 @@ public class IncDBSCANCluster {
             }
         }
 
+        for (Point p : updateSeed) {
+            System.out.println("updateSeed " + p.toString());
+        }
+
         // different cases based on the UpdSeed_Ins
         if (updateSeed.isEmpty()) {  // UpdSeed is empty, p is a noise point
+            System.out.println("Upd is empty");
             newPoint.clusterIndex = Point.NOISE;
         } else {
             // set contains only non-noise cluster index.
@@ -88,13 +93,17 @@ public class IncDBSCANCluster {
             }
 
             if (clusterIdSet.isEmpty()) {
-                // case 1: all seeds were noise before new point insertion
+                System.out.println("All seeds are noise");
+                // case 1: all seeds were noise before new point insertion,
+                // a new cluster containing these noise objects as well as
+                // new point is created.
                 for (Point seed : updateSeed) {
                     expandCluster(seed, clusterGlobalID);
                     clusterMapping.put(clusterGlobalID, clusterGlobalID);
-                    clusterGlobalID++;
                 }
+                clusterGlobalID++;
             } else if (clusterIdSet.size() == 1) {
+                System.out.println("All seeds are one cluster");
                 // retrieve the unique cluster id.
                 int uniqueClusterID = -1;
                 for (int id : clusterIdSet) {
@@ -105,6 +114,7 @@ public class IncDBSCANCluster {
                     expandCluster(seed, uniqueClusterID);
                 }
             } else {
+                System.out.println("All seeds are different clusters");
                 // case 3: seeds contains several clusters, merge these clusters
                 newPoint.clusterIndex = clusterGlobalID;
                 for (int id : clusterIdSet) {
